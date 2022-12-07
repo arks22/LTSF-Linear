@@ -16,8 +16,7 @@ parser = argparse.ArgumentParser(description='Autoformer & Transformer family fo
 # basic config
 parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
 parser.add_argument('--model_id', type=str, required=True, default='test', help='model id')
-parser.add_argument('--model', type=str, required=True, default='Autoformer',
-                    help='model name, options: [Autoformer, Informer, Transformer]')
+parser.add_argument('--model', type=str, required=True, default='Autoformer', help='model name, options: [Autoformer, Informer, Transformer]')
 
 # data loader
 parser.add_argument('--data', type=str, required=True, default='ETTm1', help='dataset type')

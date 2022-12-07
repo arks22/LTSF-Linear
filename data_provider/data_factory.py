@@ -39,6 +39,7 @@ def data_provider(args, flag):
         features=args.features,
         target=args.target,
         timeenc=timeenc,
+        date_type=args.date_type,
         freq=freq
     )
     print(flag, len(data_set))

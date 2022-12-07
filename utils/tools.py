@@ -81,14 +81,17 @@ class StandardScaler():
         return (data * self.std) + self.mean
 
 
-def visual(true, preds=None, name='./pic/test.pdf'):
+def visual(true, preds=None, seq_len=100, pred_len=10, name='./pic/test.pdf'):
     """
     Results visualization
     """
     plt.figure()
-    plt.plot(true, label='GroundTruth', linewidth=2)
     if preds is not None:
-        plt.plot(preds, label='Prediction', linewidth=2)
+        plt.plot(preds, label='Prediction', linewidth=1)
+
+    plt.plot(true, label='GroundTruth', linewidth=1)
+
+    plt.axvspan(seq_len, seq_len + pred_len, color="blue", alpha=0.1)
     plt.legend()
     plt.savefig(name, bbox_inches='tight')
 

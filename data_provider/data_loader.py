@@ -192,7 +192,7 @@ class Dataset_ETT_minute(Dataset):
 class Dataset_Custom(Dataset):
     def __init__(self, root_path, flag='train', size=None,
                  features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h'):
+                 target='OT', scale=True, timeenc=0, date_type='unix', freq='h'):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -213,6 +213,7 @@ class Dataset_Custom(Dataset):
         self.scale = scale
         self.timeenc = timeenc
         self.freq = freq
+        self.date_type = date_type
 
         self.root_path = root_path
         self.data_path = data_path
@@ -220,8 +221,8 @@ class Dataset_Custom(Dataset):
 
     def __read_data__(self):
         self.scaler = StandardScaler()
-        df_raw = pd.read_csv(os.path.join(self.root_path,
-                                          self.data_path))
+        df_raw = pd.read_csv(os.path.join(self.root_path, self.data_path))
+        df_raw = df_raw.dropna(how='any')
 
         '''
         df_raw.columns: ['date', ...(other features), target feature]
@@ -255,7 +256,12 @@ class Dataset_Custom(Dataset):
             data = df_data.values
 
         df_stamp = df_raw[['date']][border1:border2]
-        df_stamp['date'] = pd.to_datetime(df_stamp.date)
+
+        if self.date_type == 'date':
+            df_stamp['date'] = pd.to_datetime(df_stamp.date)
+        elif self.date_type == 'unix':
+            df_stamp['date'] = pd.to_datetime(df_stamp.date, unit='s', utc=True)
+
         if self.timeenc == 0:
             df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
             df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
@@ -272,9 +278,9 @@ class Dataset_Custom(Dataset):
 
     def __getitem__(self, index):
         s_begin = index
-        s_end = s_begin + self.seq_len
+        s_end   = s_begin + self.seq_len
         r_begin = s_end - self.label_len
-        r_end = r_begin + self.label_len + self.pred_len
+        r_end   = r_begin + self.label_len + self.pred_len
 
         seq_x = self.data_x[s_begin:s_end]
         seq_y = self.data_y[r_begin:r_end]
