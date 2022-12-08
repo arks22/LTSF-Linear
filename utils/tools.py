@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import time
+import random
 
 plt.switch_backend('agg')
 
@@ -85,7 +86,7 @@ def visual(true, preds=None, seq_len=100, pred_len=10, name='./pic/test.pdf'):
     """
     Results visualization
     """
-    plt.figure()
+    plt.figure(figsize=(60,20))
     if preds is not None:
         plt.plot(preds, label='Prediction', linewidth=1)
 
@@ -93,7 +94,19 @@ def visual(true, preds=None, seq_len=100, pred_len=10, name='./pic/test.pdf'):
 
     plt.axvspan(seq_len, seq_len + pred_len, color="blue", alpha=0.1)
     plt.legend()
+    plt.grid()
     plt.savefig(name, bbox_inches='tight')
+
+
+def scatter(true, pred, name):
+    stacked_list = np.dstack([pred[:, -1, 0], true[:, -1, 0]])[0]
+    sample = np.array(random.sample(list(stacked_list), 10000)).T
+
+    plt.figure(figsize=(15,15))
+    plt.scatter(sample[0], sample[1],alpha=0.5)
+    plt.grid()
+    plt.savefig(name)
+
 
 def test_params_flop(model,x_shape):
     """

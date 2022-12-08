@@ -11,10 +11,10 @@ pred_len=60
 model_name=DLinear
 
 python3 -u run_longExp.py \
-  --is_training 1 \
+  --is_training 0 \
   --root_path ./dataset/bitstamp \
-  --data_path bitstamp_indices.csv\
-  --model_id BitStamp_indices_$seq_len'_'$pred_len \
+  --data_path bitstamp_indices1.csv\
+  --model_id BitStamp_indices1_$seq_len'_'$pred_len \
   --model $model_name \
   --data custom \
   --features MS \
@@ -24,9 +24,8 @@ python3 -u run_longExp.py \
   --des 'Exp' \
   --target Weighted_Price \
   --itr 1 \
-  --train_epochs 100 \
+  --train_epochs 20 \
   --batch_size 1024 \
-# batch_size standart 1024
   --num_workers 16 \
   --date_type date \
   --learning_rate 0.0005

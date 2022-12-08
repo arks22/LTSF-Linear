@@ -10,59 +10,65 @@ df['date'] = pd.to_datetime(df['date'], unit='s', utc=True)
 
 df['weekday'] = df['date'].dt.weekday
 
-#  1時間、6時間、1日、7日、25日、100日
+periods = [3, 10, 30, 60, 60*3, 60*6, 60*24, 60*24*3, 60*24*7]
+
 # Moving Average
-periods = [1, 6, 24, 24*7, 24*25, 24*100]
 for period in periods:
-    if period < 24:
-        col = 'ma_{}h'.format(period)
+    if period < 60:
+        col = 'ma_{}m'.format(period)
+    elif period < 24 * 60:
+        col = 'ma_{}h'.format(round(period / 60))
     else:
-        col = 'ma_{}d'.format(round(period / 24))
-    period *= 60
+        col = 'ma_{}d'.format(round(period / (60 * 24)))
+
     df[col] = df['Close'].rolling(period, min_periods=1).mean()
 
 # 変化率
-periods = [1, 6, 24, 24*7, 24*25, 24*100]
 for period in periods:
-    if period < 24:
-        col = 'change_rate_{}h'.format(period)
+    if period < 60:
+        col = 'change_rate_{}m'.format(period)
+    elif period < 24 * 60:
+        col = 'change_rate_{}h'.format(round(period / 60))
     else:
-        col = 'change_rate_{}d'.format(round(period / 24))
-    period *= 60
+        col = 'change_rate_{}d'.format(round(period / (60 * 24)))
+
     df[col] = df['Close'].pct_change(period)
 
 # ボラティリティ
-periods = [1, 6, 24, 24*7, 24*25, 24*100]
 for period in periods:
-    if period < 24:
-        col = 'volatility_{}h'.format(period)
+    if period < 60:
+        col = 'volatility_{}m'.format(period)
+    elif period < 24 * 60:
+        col = 'volatility_{}h'.format(round(period / 60))
     else:
-        col = 'volatility_{}d'.format(round(period / 24))
-    period *= 60
+        col = 'volatility_{}d'.format(round(period / (60 * 24)))
+
     df[col] = np.log(df["Close"]).diff().rolling(period, min_periods=1).std()
 
 # 最小値
-periods = [1, 6, 24, 24*7, 24*25, 24*100]
 for period in periods:
-    if period < 24:
-        col = 'min_{}h'.format(period)
+    if period < 60:
+        col = 'min_{}m'.format(period)
+    elif period < 24 * 60:
+        col = 'min_{}h'.format(round(period / 60))
     else:
-        col = 'min_{}d'.format(round(period / 24))
-    period *= 60
+        col = 'min_{}d'.format(round(period / (60 * 24)))
+
     df[col] = df['Close'].rolling(period, min_periods=1).min()
 
 # 最大値
-periods = [1, 6, 24, 24*7, 24*25, 24*100]
 for period in periods:
-    if period < 24:
-        col = 'max_{}h'.format(period)
+    if period < 60:
+        col = 'max_{}m'.format(period)
+    elif period < 24 * 60:
+        col = 'max_{}h'.format(round(period / 60))
     else:
-        col = 'max_{}d'.format(round(period / 24))
-    period *= 60
+        col = 'max_{}d'.format(round(period / (60 * 24)))
+
     df[col] = df['Close'].rolling(period, min_periods=1).max()
 
 print(df)
-df.to_csv('bitstamp.csv')
+df.to_csv('bitstamp_indices2.csv')
 
 
 """

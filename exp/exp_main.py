@@ -1,7 +1,7 @@
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
 from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear
-from utils.tools import EarlyStopping, adjust_learning_rate, visual, test_params_flop
+from utils.tools import EarlyStopping, adjust_learning_rate, visual, test_params_flop, scatter
 from utils.metrics import metric
 
 import numpy as np
@@ -11,10 +11,15 @@ from torch import optim
 
 import os
 import time
+import math
+import random
+import pandas as pd
+from tqdm import tqdm
+
+from sklearn.preprocessing import StandardScaler
 
 import warnings
 import matplotlib.pyplot as plt
-import numpy as np
 
 warnings.filterwarnings('ignore')
 
@@ -53,7 +58,7 @@ class Exp_Main(Exp_Basic):
         total_loss = []
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(vali_loader):
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(vali_loader)):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float()
 
@@ -122,7 +127,7 @@ class Exp_Main(Exp_Basic):
 
             self.model.train()
             epoch_time = time.time()
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(train_loader):
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(train_loader)):
                 iter_count += 1
                 model_optim.zero_grad()
                 batch_x = batch_x.float().to(self.device)
@@ -216,8 +221,18 @@ class Exp_Main(Exp_Basic):
             os.makedirs(folder_path)
 
         self.model.eval()
+        test_num = 0
+
+        means, _ , scales = test_data.indices_scaler()
+        print(means)
+        print(scales)
+        mean = means[-1]
+        scale = scales[-1]
+        print(mean)
+        print(scale)
+
         with torch.no_grad():
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(test_loader)):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float().to(self.device)
 
@@ -251,39 +266,46 @@ class Exp_Main(Exp_Basic):
                 # print(outputs.shape,batch_y.shape)
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
-                outputs = outputs.detach().cpu().numpy()
-                batch_y = batch_y.detach().cpu().numpy()
+                #outputs = outputs.detach().cpu().numpy()
+                #batch_y = batch_y.detach().cpu().numpy()
 
-                pred = outputs  # outputs.detach().cpu().numpy()  # .squeeze()
-                true = batch_y  # batch_y.detach().cpu().numpy()  # .squeeze()
+                pred = outputs * scale + mean 
+                true = batch_y * scale + mean 
+
+                pred = pred.detach().cpu().numpy()
+                true = true.detach().cpu().numpy()
 
                 preds.append(pred)
                 trues.append(true)
-                inputx.append(batch_x.detach().cpu().numpy())
-                if i % 20 == 0:
+                #inputx.append(batch_x.detach().cpu().numpy())
+
+                if i % 20 == 0 and not self.args.visual_samples < test_num:
+                    test_num += 1
+                    batch_x  = batch_x * scale + mean
                     input = batch_x.detach().cpu().numpy()
-                    gt = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
-                    pd = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
-                    visual(gt, pd, self.args.seq_len, self.args.pred_len, os.path.join(folder_path, str(i) + '.pdf'))
+                    pred = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
+                    true = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
+
+                    visual(true, pred, self.args.seq_len, self.args.pred_len, os.path.join(folder_path, str(i) + '.pdf'))
 
         if self.args.test_flop:
             test_params_flop((batch_x.shape[1],batch_x.shape[2]))
             exit()
+
         preds = np.array(preds)
         trues = np.array(trues)
-        inputx = np.array(inputx)
+        preds = preds.reshape(-1, preds.shape[-2], 1)
+        trues = trues.reshape(-1, trues.shape[-2], 1)
 
-        preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
-        trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
-        inputx = inputx.reshape(-1, inputx.shape[-2], inputx.shape[-1])
+        scatter(preds, trues, 'scatter.pdf')
 
         # result save
         folder_path = './results/' + setting + '/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
-        mae, mse, rmse, mape, mspe, rse, corr = metric(preds, trues)
-        print('mse:{}, mae:{}'.format(mse, mae))
+        mae, mse, rmse, mape, mspe, rse, corr, r_1h = metric(preds, trues)
+        print('mse:{}, mae:{}, r_1h:{}'.format(mse, mae, r_1h))
         f = open("result.txt", 'a')
         f.write(setting + "  \n")
         f.write('mse:{}, mae:{}, rse:{}, corr:{}'.format(mse, mae, rse, corr))

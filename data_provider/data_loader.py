@@ -276,6 +276,7 @@ class Dataset_Custom(Dataset):
         self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
 
+
     def __getitem__(self, index):
         s_begin = index
         s_end   = s_begin + self.seq_len
@@ -294,7 +295,13 @@ class Dataset_Custom(Dataset):
 
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
-    
+
+    def indices_scaler(self):
+        mean  = self.scaler.mean_
+        var   = self.scaler.var_
+        scale = self.scaler.scale_
+        return mean, var, scale
+
 
 class Dataset_Pred(Dataset):
     def __init__(self, root_path, flag='pred', size=None,

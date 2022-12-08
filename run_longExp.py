@@ -57,6 +57,8 @@ parser.add_argument('--embed', type=str, default='timeF', help='time features en
 parser.add_argument('--activation', type=str, default='gelu', help='activation')
 parser.add_argument('--output_attention', action='store_true', help='whether to output attention in ecoder')
 parser.add_argument('--do_predict', action='store_true', help='whether to predict unseen future data')
+parser.add_argument('--visual_samples', default=50)
+parser.add_argument('--test_samples', default=10000)
 
 # optimization
 parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
@@ -74,7 +76,7 @@ parser.add_argument('--use_amp', action='store_true', help='use automatic mixed 
 parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
 parser.add_argument('--gpu', type=int, default=0, help='gpu')
 parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False)
-parser.add_argument('--devices', type=str, default='0,1,2,3', help='device ids of multile gpus')
+parser.add_argument('--devices', type=str, default='0', help='device ids of multile gpus')
 parser.add_argument('--test_flop', action='store_true', default=False, help='See utils/tools for usage')
 
 args = parser.parse_args()
@@ -114,7 +116,7 @@ if args.is_training:
             args.des, ii)
 
         exp = Exp(args)  # set experiments
-        print('>>>>>>> start training : {}'.format(setting))
+        print('>>>>>>> training : {}'.format(setting))
         exp.train(setting)
 
         print('>>>>>>> testing : {}'.format(setting))
@@ -145,6 +147,6 @@ else:
                                                                                                   args.des, ii)
 
     exp = Exp(args)  # set experiments
-    print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+    print('>>>>>>> testing : {}'.format(setting))
     exp.test(setting, test=1)
     torch.cuda.empty_cache()

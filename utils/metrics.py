@@ -31,6 +31,12 @@ def MAPE(pred, true):
 def MSPE(pred, true):
     return np.mean(np.square((pred - true) / true))
 
+def R_1H(pred, true):
+    pred_1h = pred[:, -1, 0]
+    true_1h = true[:, -1, 0]
+    r = np.corrcoef(pred_1h, true_1h)[0,1]
+    return r
+
 
 def metric(pred, true):
     mae = MAE(pred, true)
@@ -40,5 +46,6 @@ def metric(pred, true):
     mspe = MSPE(pred, true)
     rse = RSE(pred, true)
     corr = CORR(pred, true)
+    r_1h = R_1H(pred, true)
 
-    return mae, mse, rmse, mape, mspe, rse, corr
+    return mae, mse, rmse, mape, mspe, rse, corr, r_1h
