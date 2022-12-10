@@ -14,9 +14,11 @@ import time
 import math
 import random
 import pandas as pd
+import seaborn as sns
 from tqdm import tqdm
 
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import confusion_matrix, accuracy_score
 
 import warnings
 import matplotlib.pyplot as plt
@@ -215,7 +217,7 @@ class Exp_Main(Exp_Basic):
 
         preds = []
         trues = []
-        inputx = []
+        inputs_last = []
         folder_path = './test_results/' + setting + '/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
@@ -224,12 +226,8 @@ class Exp_Main(Exp_Basic):
         test_num = 0
 
         means, _ , scales = test_data.indices_scaler()
-        print(means)
-        print(scales)
         mean = means[-1]
         scale = scales[-1]
-        print(mean)
-        print(scale)
 
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(test_loader)):
@@ -271,20 +269,22 @@ class Exp_Main(Exp_Basic):
 
                 pred = outputs * scale + mean 
                 true = batch_y * scale + mean 
+                batch_x = batch_x * scale + mean
 
                 pred = pred.detach().cpu().numpy()
                 true = true.detach().cpu().numpy()
 
+                batch_x_last = batch_x[:, -1, -1].detach().cpu().numpy() #(1024)
+
                 preds.append(pred)
                 trues.append(true)
-                #inputx.append(batch_x.detach().cpu().numpy())
+                inputs_last.append(batch_x_last)
 
                 if i % 20 == 0 and not self.args.visual_samples < test_num:
                     test_num += 1
-                    batch_x  = batch_x * scale + mean
-                    input = batch_x.detach().cpu().numpy()
-                    pred = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
-                    true = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
+                    input_data = batch_x.detach().cpu().numpy()
+                    pred = np.concatenate((input_data[0, :, -1], pred[0, :, -1]), axis=0)
+                    true = np.concatenate((input_data[0, :, -1], true[0, :, -1]), axis=0)
 
                     visual(true, pred, self.args.seq_len, self.args.pred_len, os.path.join(folder_path, str(i) + '.pdf'))
 
@@ -292,20 +292,51 @@ class Exp_Main(Exp_Basic):
             test_params_flop((batch_x.shape[1],batch_x.shape[2]))
             exit()
 
-        preds = np.array(preds)
-        trues = np.array(trues)
-        preds = preds.reshape(-1, preds.shape[-2], 1)
-        trues = trues.reshape(-1, trues.shape[-2], 1)
+        
+        trues = np.array(trues) #(i, 1024, 60, 1)
+        preds = np.array(preds) #(i, 1024, 60, 1)
+        inputs_last = np.ravel(np.array(inputs_last).T) #(i, 1024)
 
-        scatter(preds, trues, 'scatter.pdf')
+        #混同行列
+        trues_first =  np.ravel(trues[:, :,  0, 0])
+        trues_last  =  np.ravel(trues[:, :, -1, 0])
+        preds_first =  np.ravel(preds[:, :,  0, 0])
+        preds_last  =  np.ravel(preds[:, :, -1, 0])
 
-        # result save
-        folder_path = './results/' + setting + '/'
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+        preds_eval = preds.reshape(-1, preds.shape[-2], 1)
+        trues_eval = trues.reshape(-1, trues.shape[-2], 1)
 
-        mae, mse, rmse, mape, mspe, rse, corr, r_1h = metric(preds, trues)
-        print('mse:{}, mae:{}, r_1h:{}'.format(mse, mae, r_1h))
+        updown_gt_first  = np.where(inputs_last < trues_first, 0, 1) # Up: 0, Down: 1
+        updown_gt_last   = np.where(inputs_last < trues_last, 0, 1)
+        updown_pd_first  = np.where(inputs_last < preds_first, 0, 1)
+        updown_pd_last   = np.where(inputs_last < preds_last, 0, 1)
+        print(np.count_nonzero(updown_gt_first ==  0))
+        print(np.count_nonzero(updown_pd_first ==  0))
+
+        cm_first = confusion_matrix(updown_gt_first, updown_pd_first)
+        cm_first = pd.DataFrame(data=cm_first, index=['Up', 'Down'], columns=['Up', 'Down'])
+        plt.figure(figsize=(8,8))
+        sns.heatmap(cm_first,square=True, annot=True, fmt='d', cmap='Blues')
+        plt.title('1m later')
+        plt.xlabel("Prediction")
+        plt.ylabel("GT")
+        plt.savefig('cm_first.png')
+
+        cm_last = confusion_matrix(updown_gt_last, updown_pd_last)
+        cm_last = pd.DataFrame(data=cm_last, index=["Up", "Down"], columns=["Up", 'Down'])
+        plt.figure(figsize=(8,8))
+        sns.heatmap(cm_last, square=True, annot=True, fmt='d', cmap='Blues')
+        plt.title('1h later')
+        plt.xlabel("Prediction")
+        plt.ylabel("GT")
+        plt.savefig('cm_last.png')
+
+        updown_acc_first = accuracy_score(updown_gt_first, updown_pd_first)
+        updown_acc_last  = accuracy_score(updown_gt_last, updown_pd_last)
+        print('updown_acc_first:{}, updown_acc_last:{}'.format(updown_acc_first, updown_acc_last))
+
+        mae, mse, rmse, mape, mspe, rse, corr, r_last = metric(preds_eval, trues_eval)
+        print('mse:{}, mae:{}, mape:{}, r_last:{}'.format(mse, mae, mape, r_last))
         f = open("result.txt", 'a')
         f.write(setting + "  \n")
         f.write('mse:{}, mae:{}, rse:{}, corr:{}'.format(mse, mae, rse, corr))
@@ -313,10 +344,8 @@ class Exp_Main(Exp_Basic):
         f.write('\n')
         f.close()
 
-        # np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe,rse, corr]))
-        np.save(folder_path + 'pred.npy', preds)
-        # np.save(folder_path + 'true.npy', trues)
-        # np.save(folder_path + 'x.npy', inputx)
+        scatter(preds_eval, trues_eval, r_last, os.path.join(folder_path, 'scatter.pdf'))
+
         return
 
     def predict(self, setting, load=False):

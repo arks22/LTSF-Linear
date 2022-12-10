@@ -95,16 +95,21 @@ def visual(true, preds=None, seq_len=100, pred_len=10, name='./pic/test.pdf'):
     plt.axvspan(seq_len, seq_len + pred_len, color="blue", alpha=0.1)
     plt.legend()
     plt.grid()
+    plt.xlabel('date')
+    plt.ylabel('price')
     plt.savefig(name, bbox_inches='tight')
 
 
-def scatter(true, pred, name):
-    stacked_list = np.dstack([pred[:, -1, 0], true[:, -1, 0]])[0]
+def scatter(true, pred, r, name):
+    stacked_list = np.dstack([true[:, -1, 0], pred[:, -1, 0]])[0]
     sample = np.array(random.sample(list(stacked_list), 10000)).T
 
     plt.figure(figsize=(15,15))
     plt.scatter(sample[0], sample[1],alpha=0.5)
     plt.grid()
+    plt.title('r = ' + str(r))
+    plt.xlabel('GT price')
+    plt.ylabel('predict price')
     plt.savefig(name)
 
 
