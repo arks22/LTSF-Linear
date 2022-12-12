@@ -34,6 +34,7 @@ RUN python3 -m pip install scikit-image
 RUN python3 -m pip install scikit-learn
 RUN python3 -m pip install tqdm
 RUN python3 -m pip install matplotlib
+RUN python3 -m pip install seaborn
 RUN python3 -m pip install imgcat
 RUN python3 -m pip install pandas
 ENV NVIDIA_VISIBLE_DEVICES all

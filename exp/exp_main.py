@@ -320,7 +320,7 @@ class Exp_Main(Exp_Basic):
         plt.title('1m later')
         plt.xlabel("Prediction")
         plt.ylabel("GT")
-        plt.savefig('cm_first.png')
+        plt.savefig(os.path.join(folder_path, 'cm_first.png'))
 
         cm_last = confusion_matrix(updown_gt_last, updown_pd_last)
         cm_last = pd.DataFrame(data=cm_last, index=["Up", "Down"], columns=["Up", 'Down'])
@@ -329,7 +329,7 @@ class Exp_Main(Exp_Basic):
         plt.title('1h later')
         plt.xlabel("Prediction")
         plt.ylabel("GT")
-        plt.savefig('cm_last.png')
+        plt.savefig(os.path.join(folder_path, 'cm_last.png'))
 
         updown_acc_first = accuracy_score(updown_gt_first, updown_pd_first)
         updown_acc_last  = accuracy_score(updown_gt_last, updown_pd_last)
