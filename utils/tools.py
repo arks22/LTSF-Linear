@@ -3,9 +3,11 @@ import torch
 import matplotlib.pyplot as plt
 import time
 import random
+import seaborn as sns
+import pandas
+from sklearn.metrics import confusion_matrix
 
 plt.switch_backend('agg')
-
 
 def adjust_learning_rate(optimizer, epoch, args):
     # lr = args.learning_rate * (0.2 ** (epoch // 2))
@@ -82,35 +84,73 @@ class StandardScaler():
         return (data * self.std) + self.mean
 
 
-def visual(true, preds=None, seq_len=100, pred_len=10, name='./pic/test.pdf'):
+def plot_chart(gt, pd=None, seq_len=100, pd_len=10, filename='./pic/test.pdf'):
     """
     Results visualization
     """
     plt.figure(figsize=(60,20))
-    if preds is not None:
-        plt.plot(preds, label='Prediction', linewidth=1)
+    if pd is not None:
+        plt.plot(pd, label='Prediction', linewidth=1)
 
-    plt.plot(true, label='GroundTruth', linewidth=1)
+    plt.plot(gt, label='GroundTruth', linewidth=1)
 
-    plt.axvspan(seq_len, seq_len + pred_len, color="blue", alpha=0.1)
+    plt.axvspan(seq_len, seq_len + pd_len, color="blue", alpha=0.1)
     plt.legend()
     plt.grid()
     plt.xlabel('date')
     plt.ylabel('price')
-    plt.savefig(name, bbox_inches='tight')
+    plt.savefig(filename, bbox_inches='tight')
 
 
-def scatter(true, pred, r, name):
-    stacked_list = np.dstack([true[:, -1, 0], pred[:, -1, 0]])[0]
-    sample = np.array(random.sample(list(stacked_list), 10000)).T
+def plot_cm(gt, pd, title, index, columns, filename):
+    cm = confusion_matrix(gt, pd)
+    cm = pandas.DataFrame(data=cm, index=index, columns=columns)
+    plt.figure(figsize=(8,8))
+    sns.heatmap(cm, square=True, annot=True, fmt='d', cmap='Blues')
+    plt.title(title)
+    plt.xlabel("Prediction")
+    plt.ylabel("GT")
+    plt.savefig(filename)
+
+
+def plot_scatter(gt, pd, sampling, title, r, filename):
+    gt = np.ravel(gt)
+    pd = np.ravel(pd)
+    stacked_array = np.dstack((gt,pd))[0]
+
+    if sampling:
+        sample = np.array(random.sample(list(stacked_array), 10000)).T
+    else:
+        sample = stacked_array.T
 
     plt.figure(figsize=(15,15))
-    plt.scatter(sample[0], sample[1],alpha=0.5)
+    plt.scatter(sample[0], sample[1],alpha=0.3)
     plt.grid()
-    plt.title('r = ' + str(r))
+    if r: 
+        plt.title(title + ' | r = ' + str(r))
+    plt.axhline(y=0)
+    plt.axvline(x=0)
     plt.xlabel('GT price')
     plt.ylabel('predict price')
-    plt.savefig(name)
+    plt.savefig(filename)
+
+
+def plot_heatmap(gt, pd, sampling, title, filename):
+    gt = np.ravel(gt)
+    pd = np.ravel(pd)
+    stacked_array = np.dstack((gt,pd))[0]
+
+    if sampling:
+        sample = np.array(random.sample(list(stacked_array), 10000)).T
+    else:
+        sample = stacked_array.T
+
+    plt.figure(figsize=(15,15))
+    sns.jointplot(x=sample[0], y=sample[1], kind="hist", color="#D91887")
+    plt.grid()
+    plt.xlabel('GT price')
+    plt.ylabel('predict price')
+    plt.savefig(filename)
 
 
 def test_params_flop(model,x_shape):

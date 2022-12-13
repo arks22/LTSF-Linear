@@ -1,8 +1,8 @@
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
 from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear
-from utils.tools import EarlyStopping, adjust_learning_rate, visual, test_params_flop, scatter
-from utils.metrics import metric
+from utils.tools import EarlyStopping, adjust_learning_rate, plot_chart, test_params_flop, plot_scatter, plot_cm, plot_heatmap
+from utils.metrics import metrics, R_LAST
 
 import numpy as np
 import torch
@@ -13,8 +13,7 @@ import os
 import time
 import math
 import random
-import pandas as pd
-import seaborn as sns
+import pandas
 from tqdm import tqdm
 
 from sklearn.preprocessing import StandardScaler
@@ -267,6 +266,7 @@ class Exp_Main(Exp_Basic):
                 #outputs = outputs.detach().cpu().numpy()
                 #batch_y = batch_y.detach().cpu().numpy()
 
+                # inverse standardization
                 pred = outputs * scale + mean 
                 true = batch_y * scale + mean 
                 batch_x = batch_x * scale + mean
@@ -282,20 +282,27 @@ class Exp_Main(Exp_Basic):
 
                 if i % 20 == 0 and not self.args.visual_samples < test_num:
                     test_num += 1
-                    input_data = batch_x.detach().cpu().numpy()
-                    pred = np.concatenate((input_data[0, :, -1], pred[0, :, -1]), axis=0)
-                    true = np.concatenate((input_data[0, :, -1], true[0, :, -1]), axis=0)
 
-                    visual(true, pred, self.args.seq_len, self.args.pred_len, os.path.join(folder_path, str(i) + '.pdf'))
+                    input_data = batch_x.detach().cpu().numpy()
+                    input_and_true = np.concatenate((input_data[0, :, -1], true[0, :, -1]), axis=0)
+                    input_and_pred = np.concatenate((input_data[0, :, -1], pred[0, :, -1]), axis=0)
+
+                    plot_chart(input_and_true, input_and_pred, self.args.seq_len, self.args.pred_len, os.path.join(folder_path, str(i) + '.pdf'))
+                    test_num += 1
 
         if self.args.test_flop:
             test_params_flop((batch_x.shape[1],batch_x.shape[2]))
             exit()
-
         
         trues = np.array(trues) #(i, 1024, 60, 1)
         preds = np.array(preds) #(i, 1024, 60, 1)
-        inputs_last = np.ravel(np.array(inputs_last).T) #(i, 1024)
+        inputs_last = np.array(inputs_last) #(i, 1024)
+        #print(inputs_last.shape)
+        #print(trues.shape)
+
+        max_i = np.unravel_index(np.argmax(np.squeeze(trues) - inputs_last[...,np.newaxis]), preds.shape)
+        #print(trues[max_i])
+        #print(inputs_last[max_i[0],max_i[1]])
 
         #混同行列
         trues_first =  np.ravel(trues[:, :,  0, 0])
@@ -303,39 +310,40 @@ class Exp_Main(Exp_Basic):
         preds_first =  np.ravel(preds[:, :,  0, 0])
         preds_last  =  np.ravel(preds[:, :, -1, 0])
 
-        preds_eval = preds.reshape(-1, preds.shape[-2], 1)
-        trues_eval = trues.reshape(-1, trues.shape[-2], 1)
+        updown_gt_first  = np.where(np.ravel(inputs_last) < trues_first, 0, 1) # Up: 0, Down: 1
+        updown_gt_last   = np.where(np.ravel(inputs_last) < trues_last, 0, 1)
+        updown_pd_first  = np.where(np.ravel(inputs_last) < preds_first, 0, 1)
+        updown_pd_last   = np.where(np.ravel(inputs_last) < preds_last, 0, 1)
 
-        updown_gt_first  = np.where(inputs_last < trues_first, 0, 1) # Up: 0, Down: 1
-        updown_gt_last   = np.where(inputs_last < trues_last, 0, 1)
-        updown_pd_first  = np.where(inputs_last < preds_first, 0, 1)
-        updown_pd_last   = np.where(inputs_last < preds_last, 0, 1)
-        print(np.count_nonzero(updown_gt_first ==  0))
-        print(np.count_nonzero(updown_pd_first ==  0))
-
-        cm_first = confusion_matrix(updown_gt_first, updown_pd_first)
-        cm_first = pd.DataFrame(data=cm_first, index=['Up', 'Down'], columns=['Up', 'Down'])
-        plt.figure(figsize=(8,8))
-        sns.heatmap(cm_first,square=True, annot=True, fmt='d', cmap='Blues')
-        plt.title('1m later')
-        plt.xlabel("Prediction")
-        plt.ylabel("GT")
-        plt.savefig(os.path.join(folder_path, 'cm_first.png'))
-
-        cm_last = confusion_matrix(updown_gt_last, updown_pd_last)
-        cm_last = pd.DataFrame(data=cm_last, index=["Up", "Down"], columns=["Up", 'Down'])
-        plt.figure(figsize=(8,8))
-        sns.heatmap(cm_last, square=True, annot=True, fmt='d', cmap='Blues')
-        plt.title('1h later')
-        plt.xlabel("Prediction")
-        plt.ylabel("GT")
-        plt.savefig(os.path.join(folder_path, 'cm_last.png'))
+        plot_cm(updown_gt_first, updown_pd_first, title='1m later', index=["Up", "Down"], columns=["Up", 'Down'], filename=os.path.join(folder_path, 'cm_first.png'))
+        plot_cm(updown_gt_last,  updown_pd_last,  title='1h later', index=["Up", "Down"], columns=["Up", 'Down'], filename=os.path.join(folder_path, 'cm_last.png'))
 
         updown_acc_first = accuracy_score(updown_gt_first, updown_pd_first)
         updown_acc_last  = accuracy_score(updown_gt_last, updown_pd_last)
         print('updown_acc_first:{}, updown_acc_last:{}'.format(updown_acc_first, updown_acc_last))
 
-        mae, mse, rmse, mape, mspe, rse, corr, r_last = metric(preds_eval, trues_eval)
+        pd_eval = preds.reshape(-1, preds.shape[-2]) #(i*1024, 60, 1)
+        gt_eval = trues.reshape(-1, trues.shape[-2]) #(i*1024, 60, 1)
+
+        # 散布図
+        # 生のpriceの相関係数を出しても意味ない
+        #plot_scatter(gt_eval, pd_eval, sampling=True, title='raw value', r=r_last, filename=os.path.join(folder_path, 'scatter_raw_value.png'))
+
+        # 最後の値との差分
+        inputs_last = inputs_last[..., np.newaxis]
+        gt_diff_from_last = pd_eval - np.ravel(inputs_last)[...,np.newaxis]
+        pd_diff_from_last = gt_eval - np.ravel(inputs_last)[...,np.newaxis]
+        r_diff_last = R_LAST(gt_diff_from_last, pd_diff_from_last)
+
+        plot_scatter(gt_diff_from_last, pd_diff_from_last, sampling=True, title='diff', r=r_diff_last, filename=os.path.join(folder_path,'scatter_diff_last.png'))
+
+        # 最後の値からの変化率 = 差分/最後の値
+        gt_change_from_last = gt_diff_from_last / np.ravel(inputs_last)[...,np.newaxis]
+        pd_change_from_last = pd_diff_from_last / np.ravel(inputs_last)[...,np.newaxis]
+        r_change_from_last = R_LAST(gt_change_from_last, pd_change_from_last)
+
+        # metrics
+        mae, mse, rmse, mape, mspe, rse, corr, r_first, r_last = metrics(gt_change_from_last, pd_change_from_last)
         print('mse:{}, mae:{}, mape:{}, r_last:{}'.format(mse, mae, mape, r_last))
         f = open("result.txt", 'a')
         f.write(setting + "  \n")
@@ -344,7 +352,8 @@ class Exp_Main(Exp_Basic):
         f.write('\n')
         f.close()
 
-        scatter(preds_eval, trues_eval, r_last, os.path.join(folder_path, 'scatter.pdf'))
+        print('r(change_ratio) 1h later :',r_change_from_last)
+        plot_scatter(gt_change_from_last, pd_change_from_last, sampling=True, title='change_ratio', r=r_change_from_last, filename=os.path.join(folder_path,'scatter_change_last.png'))
 
         return
 
@@ -359,8 +368,13 @@ class Exp_Main(Exp_Basic):
         preds = []
 
         self.model.eval()
+
+        means, _ , scales = test_data.indices_scaler()
+        mean = means[-1]
+        scale = scales[-1]
+
         with torch.no_grad():
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(pred_loader):
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(tqdm(pred_loader)):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float()
                 batch_x_mark = batch_x_mark.float().to(self.device)
@@ -393,11 +407,13 @@ class Exp_Main(Exp_Basic):
         preds = np.array(preds)
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
 
+        """
         # result save
         folder_path = './results/' + setting + '/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
         np.save(folder_path + 'real_prediction.npy', preds)
+        """
 
         return

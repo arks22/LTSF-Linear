@@ -222,9 +222,7 @@ class Dataset_Custom(Dataset):
     def __read_data__(self):
         self.scaler = StandardScaler()
         df_raw = pd.read_csv(os.path.join(self.root_path, self.data_path))
-        print(len(df_raw))
         df_raw = df_raw.dropna(how='any')
-        print(len(df_raw))
 
         '''
         df_raw.columns: ['date', ...(other features), target feature]
@@ -307,9 +305,8 @@ class Dataset_Custom(Dataset):
 
 
 class Dataset_Pred(Dataset):
-    def __init__(self, root_path, flag='pred', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, inverse=False, timeenc=0, freq='15min', cols=None):
+    def __init__(self, root_path, flag='pred', size=None, features='S', data_path='ETTh1.csv',
+                 target='OT', scale=True, inverse=False, timeenc=0, freq='15min', date_type='unix', cols=None):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -328,6 +325,7 @@ class Dataset_Pred(Dataset):
         self.scale = scale
         self.inverse = inverse
         self.timeenc = timeenc
+        self.date_type = date_type
         self.freq = freq
         self.cols = cols
         self.root_path = root_path
@@ -348,6 +346,7 @@ class Dataset_Pred(Dataset):
             cols = list(df_raw.columns)
             cols.remove(self.target)
             cols.remove('date')
+
         df_raw = df_raw[['date'] + cols + [self.target]]
         border1 = len(df_raw) - self.seq_len
         border2 = len(df_raw)
@@ -366,6 +365,12 @@ class Dataset_Pred(Dataset):
 
         tmp_stamp = df_raw[['date']][border1:border2]
         tmp_stamp['date'] = pd.to_datetime(tmp_stamp.date)
+
+        if self.date_type == 'date':
+            tmp_stamp['date'] = pd.to_datetime(tmp_stamp.date)
+        elif self.date_type == 'unix':
+            tmp_stamp['date'] = pd.to_datetime(tmp_stamp.date, unit='s', utc=True)
+
         pred_dates = pd.date_range(tmp_stamp.date.values[-1], periods=self.pred_len + 1, freq=self.freq)
 
         df_stamp = pd.DataFrame(columns=['date'])
@@ -410,3 +415,9 @@ class Dataset_Pred(Dataset):
 
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
+
+    def indices_scaler(self):
+        mean  = self.scaler.mean_
+        var   = self.scaler.var_
+        scale = self.scaler.scale_
+        return mean, var, scale

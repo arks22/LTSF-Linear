@@ -28,4 +28,4 @@ python3 -u run_longExp.py \
   --batch_size 1024 \
   --num_workers 16 \
   --date_type date \
-  --learning_rate 0.0005
+  --learning_rate 0.0005 \
