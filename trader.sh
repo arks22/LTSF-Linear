@@ -20,7 +20,6 @@ python3 -u trader.py \
   --features MS \
   --seq_len $seq_len \
   --pred_len $pred_len\
-  --enc_in 49 \
   --des 'Exp' \
   --target Weighted_Price \
   --itr 1 \

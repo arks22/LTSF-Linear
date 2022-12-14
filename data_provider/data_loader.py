@@ -303,6 +303,10 @@ class Dataset_Custom(Dataset):
         scale = self.scaler.scale_
         return mean, var, scale
 
+    def get_enc_in(self):
+        enc_in = len(self.data_x) - 1
+        return enc_in
+
 
 class Dataset_Pred(Dataset):
     def __init__(self, root_path, flag='pred', size=None, features='S', data_path='ETTh1.csv',

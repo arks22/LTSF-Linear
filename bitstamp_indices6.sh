@@ -13,8 +13,8 @@ model_name=DLinear
 python3 -u run_longExp.py \
   --is_training 1 \
   --root_path ./dataset/bitstamp \
-  --data_path bitstamp_indices5.csv\
-  --model_id BitStamp_indices5_$seq_len'_'$pred_len \
+  --data_path bitstamp_indices6.csv\
+  --model_id BitStamp_indices6_$seq_len'_'$pred_len \
   --model $model_name \
   --data custom \
   --features MS \
